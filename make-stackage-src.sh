@@ -9,15 +9,24 @@ t=$(dirname ${t})
 t=$(realpath ${t})
 
 syntax() {
-    echo "build-srpm -o [output directory] -n"
+    echo "build-srpm -t [type] -o [output directory] -n"
 }
 
 outdir=""
 nocleanup=0
-while getopts "o:n" o; do
+pkgtype=
+maintainer=
+
+while getopts "o:nt:m:" o; do
     case "${o}" in
         o)
             outdir=${OPTARG}
+            ;;
+        t)
+            pkgtype=${OPTARG}
+            ;;
+        m)
+            maintainer=${OPTARG}
             ;;
 	n)
 	    nocleanup=1
@@ -35,6 +44,16 @@ if [ -z "$outdir" ] ; then
     syntax
     exit 1
 fi
+
+case $pkgtype in
+    rpm)
+    ;;
+    deb)
+    ;;
+    *)
+	echo "Need to specify proper package type"
+	exit -1
+esac
 
 export STACK_ROOT=${t}/stackroot
 
@@ -115,7 +134,7 @@ make_srpm() {
 	--exclude indices/Hackage/git-update \
 	-czf ${RPM_TARGET_DIR}/SOURCES/stack-root-indices.tar.gz indices
 
-    cat ${t}/stackage-src.spec \
+    cat ${t}/stackage-src.rpm.spec \
 	| sed s/@@PKG_VERSION@@/${PKG_VERSION}/g \
 	| sed s/@@PKG_NAME@@/${PKG_NAME}/g \
 	| sed s/@@PKG_RELEASE@@/${PKG_RELEASE}/g > ${SPEC_FILE}
@@ -131,7 +150,67 @@ make_srpm() {
     return 0
 }
 
-make_srpm
+make_sdeb() {
+    tempdir=`mktemp --tmpdir -d XXXXXXsdeb-packaging`
+
+    cleanups () {
+	rm -rf ${tempdir}
+    }
+
+    PKG_NAME=stackage-${RESOLVER}-src
+    PKG_VERSION=1.0
+    PKG_RELEASE=1
+    PKG_SITE=https://github.com/kernelim/stackage-dist
+    PKG_ONELINE="Stackage dist"
+
+    PKG_FULLVER=${PKG_VERSION}-${PKG_RELEASE}
+    ARCHIVE_NAME=${PKG_NAME}-${PKG_FULLVER}
+    PKG_CHANGELOG_TIMESTAMP=$(date +'%a, %e %b %Y %H:%M:%S %z')
+
+    mkdir ${tempdir}/${ARCHIVE_NAME}
+    cat `which stack` | gzip -c > ${tempdir}/${ARCHIVE_NAME}/stack-bin.gz
+    cd ${STACK_ROOT}
+    tar -czf ${tempdir}/${ARCHIVE_NAME}/stack-root-download-cache.tar.gz download-cache
+    tar --exclude indices/Hackage/packages \
+	--exclude indices/Hackage/git-update \
+	-czf ${tempdir}/${ARCHIVE_NAME}/stack-root-indices.tar.gz indices
+    cd ${tempdir}
+    tar -czf ${PKG_NAME}_${PKG_VERSION}.orig.tar.gz ${ARCHIVE_NAME}
+
+    i=${tempdir}/spec
+    cp ${t}/stackage-src.deb.spec ${i}
+    sed -i 's/@@PKG_NAME@@/'"${PKG_NAME}"'/g' ${i}
+    sed -i 's/@@PKG_CHANGELOG_TIMESTAMP@@/'"${PKG_CHANGELOG_TIMESTAMP}"'/g' ${i}
+    sed -i 's/@@PKG_FULLVER@@/'"${PKG_FULLVER}"'/g' ${i}
+    sed -i 's#@@PKG_SITE@@#'"${PKG_SITE}"'#g' ${i}
+    sed -i 's/@@PKG_ONELINE@@/'"${PKG_ONELINE}"'/g' ${i}
+    sed -i 's/@@PKG_MAINTAINER@@/'"${maintainer}"'/g' ${i}
+
+    cd ${tempdir}/${ARCHIVE_NAME}
+    python - <<EOF
+import os
+
+f = open("${i}", "r")
+for part in f.read().split('%%%%%%%%%%%%%%%%%%%% CUT %%%%%%%%%%%%%%%%%%%%\n'):
+    if part.startswith('%%%% '):
+       p = part.find('\n')
+       filename = part[5:p].strip()
+       d = os.path.dirname(filename)
+       if d and not os.path.exists(d): os.makedirs(d)
+       open(filename, "w").write(part[p+1:])
+EOF
+    dpkg-buildpackage -S
+
+    cd ${tempdir}
+    rm ${i}
+
+    mkdir -p ${outdir}
+    cp -v ${tempdir}/* ${outdir}
+    cleanups
+    return 0
+}
+
+make_s$pkgtype
 X=$?
 
 echo Done
