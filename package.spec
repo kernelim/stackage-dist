@@ -8,9 +8,9 @@ URL:            https://website.com
 Source0:        all-pkg.tar.gz
 BuildRoot:      %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
-BuildRequires:  stackage-@@RESOLVER@@-src-downloads
-BuildRequires:  stackage-@@RESOLVER@@-src-stack
-BuildRequires:  stackage-@@RESOLVER@@-src-indices
+BuildRequires:  stackage-dist-@@RESOLVER@@-downloads
+BuildRequires:  stackage-dist-@@RESOLVER@@-stack
+BuildRequires:  stackage-dist-@@RESOLVER@@-indices
 
 #-----
 BuildRequires:  git
@@ -30,7 +30,7 @@ tar -zxf %{_sourcedir}/all-pkg.tar.gz
 
 %build
 
-SYSTEM_STACK_ROOT=%{_prefix}/%{_lib}/stackage-@@RESOLVER@@-src
+SYSTEM_STACK_ROOT=%{_prefix}/%{_lib}/stackage-dist-@@RESOLVER@@
 
 export PATH=${SYSTEM_STACK_ROOT}/bin:$PATH
 export STACK_ROOT=`pwd`/.stack

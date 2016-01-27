@@ -122,7 +122,7 @@ make_srpm() {
     RPM_TARGET_DIR=`mktemp --tmpdir -d XXXXXXrpm-packaging`
     mkdir -p ${RPM_TARGET_DIR}/{SPECS,SOURCES}
 
-    PKG_NAME=stackage-${RESOLVER}-src
+    PKG_NAME=stackage-dist-${RESOLVER}
     SPEC_FILE=${RPM_TARGET_DIR}/SPECS/${PKG_NAME}.spec
     PKG_VERSION=1
     PKG_RELEASE=1
@@ -134,7 +134,7 @@ make_srpm() {
 	--exclude indices/Hackage/git-update \
 	-czf ${RPM_TARGET_DIR}/SOURCES/stack-root-indices.tar.gz indices
 
-    cat ${t}/stackage-src.rpm.spec \
+    cat ${t}/stackage-dist.rpm.spec \
 	| sed s/@@PKG_VERSION@@/${PKG_VERSION}/g \
 	| sed s/@@PKG_NAME@@/${PKG_NAME}/g \
 	| sed s/@@PKG_RELEASE@@/${PKG_RELEASE}/g > ${SPEC_FILE}
@@ -157,7 +157,7 @@ make_sdeb() {
 	rm -rf ${tempdir}
     }
 
-    PKG_NAME=stackage-${RESOLVER}-src
+    PKG_NAME=stackage-dist-${RESOLVER}
     PKG_VERSION=1.0
     PKG_RELEASE=1
     PKG_SITE=https://github.com/kernelim/stackage-dist
@@ -178,7 +178,7 @@ make_sdeb() {
     tar -czf ${PKG_NAME}_${PKG_VERSION}.orig.tar.gz ${ARCHIVE_NAME}
 
     i=${tempdir}/spec
-    cp ${t}/stackage-src.deb.spec ${i}
+    cp ${t}/stackage-dist.deb.spec ${i}
     sed -i 's/@@PKG_NAME@@/'"${PKG_NAME}"'/g' ${i}
     sed -i 's/@@PKG_CHANGELOG_TIMESTAMP@@/'"${PKG_CHANGELOG_TIMESTAMP}"'/g' ${i}
     sed -i 's/@@PKG_FULLVER@@/'"${PKG_FULLVER}"'/g' ${i}
