@@ -30,20 +30,20 @@ tar -zxf %{_sourcedir}/all-pkg.tar.gz
 
 %build
 
-SYSTEM_STACK_ROOT=%{_prefix}/%{_lib}/stackage-dist-@@RESOLVER@@
+STACKAGE_DIST_ROOT=%{_prefix}/%{_lib}/stackage-dist-@@RESOLVER@@
 
-export PATH=${SYSTEM_STACK_ROOT}/bin:$PATH
+export PATH=${STACKAGE_DIST_ROOT}/bin:$PATH
 export STACK_ROOT=`pwd`/.stack
 mkdir ${STACK_ROOT}
 
 cat << EOF > ${STACK_ROOT}/config.yaml
 download-cache-paths:
-- ${SYSTEM_STACK_ROOT}/download-cache
+- ${STACKAGE_DIST_ROOT}/download-cache
 - ${STACK_ROOT}/download-cache
 EOF
 
 mkdir -p ${STACK_ROOT}/indices/Hackage/
-ln -s ${SYSTEM_STACK_ROOT}/indices/Hackage/* ${STACK_ROOT}/indices/Hackage/
+ln -s ${STACKAGE_DIST_ROOT}/indices/Hackage/* ${STACK_ROOT}/indices/Hackage/
 
 cd All
 stack setup

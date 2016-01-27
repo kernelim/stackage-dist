@@ -49,6 +49,10 @@ case $pkgtype in
     rpm)
     ;;
     deb)
+	if [[ "$maintainer" == "" ]] ; then
+	    echo "Maintainer needs to be given for type 'deb'"
+	    exit -1
+	fi
     ;;
     *)
 	echo "Need to specify proper package type"
@@ -133,6 +137,7 @@ make_srpm() {
     tar --exclude indices/Hackage/packages \
 	--exclude indices/Hackage/git-update \
 	-czf ${RPM_TARGET_DIR}/SOURCES/stack-root-indices.tar.gz indices
+    cp ${t}/helpers.sh ${RPM_TARGET_DIR}/SOURCES/helpers.sh
 
     cat ${t}/stackage-dist.rpm.spec \
 	| sed s/@@PKG_VERSION@@/${PKG_VERSION}/g \
@@ -167,13 +172,15 @@ make_sdeb() {
     ARCHIVE_NAME=${PKG_NAME}-${PKG_FULLVER}
     PKG_CHANGELOG_TIMESTAMP=$(date +'%a, %e %b %Y %H:%M:%S %z')
 
-    mkdir ${tempdir}/${ARCHIVE_NAME}
-    cat `which stack` | gzip -c > ${tempdir}/${ARCHIVE_NAME}/stack-bin.gz
+    local dest=${tempdir}/${ARCHIVE_NAME}
+    mkdir ${dest}
+    cat `which stack` | gzip -c > ${dest}/stack-bin.gz
+    cp ${t}/helpers.sh ${dest}/helpers.sh
     cd ${STACK_ROOT}
-    tar -czf ${tempdir}/${ARCHIVE_NAME}/stack-root-download-cache.tar.gz download-cache
+    tar -czf ${dest}/stack-root-download-cache.tar.gz download-cache
     tar --exclude indices/Hackage/packages \
 	--exclude indices/Hackage/git-update \
-	-czf ${tempdir}/${ARCHIVE_NAME}/stack-root-indices.tar.gz indices
+	-czf ${dest}/stack-root-indices.tar.gz indices
     cd ${tempdir}
     tar -czf ${PKG_NAME}_${PKG_VERSION}.orig.tar.gz ${ARCHIVE_NAME}
 
@@ -186,7 +193,7 @@ make_sdeb() {
     sed -i 's/@@PKG_ONELINE@@/'"${PKG_ONELINE}"'/g' ${i}
     sed -i 's/@@PKG_MAINTAINER@@/'"${maintainer}"'/g' ${i}
 
-    cd ${tempdir}/${ARCHIVE_NAME}
+    cd ${dest}
     python - <<EOF
 import os
 

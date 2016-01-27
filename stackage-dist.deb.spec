@@ -38,8 +38,8 @@ src_dir=$(pwd)
 
 mkdir -p ${DESTDIR}
 cd ${DESTDIR}
-mkdir -p usr/share/@@PKG_NAME@@
-echo > usr/share/@@PKG_NAME@@/stamp
+mkdir -p usr/lib/@@PKG_NAME@@
+cp -a ${src_dir}/helpers.sh usr/lib/@@PKG_NAME@@
 
 mkdir -p ${DESTDIR}-stack/usr/bin
 cd ${DESTDIR}-stack/usr/bin

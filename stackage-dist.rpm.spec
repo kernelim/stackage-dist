@@ -8,6 +8,7 @@ URL:            https://www.stackage.org
 Source0:        stack-bin.gz
 Source1:        stack-root-download-cache.tar.gz
 Source2:        stack-root-indices.tar.gz
+Source3:        helpers.sh
 BuildRoot:      %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 %description
@@ -54,16 +55,13 @@ export STACK_ROOT=
 %install
 
 unpack_root=$(pwd)
-STACKAGE_ROOT=$RPM_BUILD_ROOT/%{_prefix}/%{_lib}/%name
-mkdir -p ${STACKAGE_ROOT}/
-mv ${unpack_root}/.stack/* ${STACKAGE_ROOT}/
-
-SHARE_DIR=$RPM_BUILD_ROOT/%{_prefix}/share/%name
-mkdir -p ${SHARE_DIR}
-echo > ${SHARE_DIR}/stamp
+STACKAGE_DIST_ROOT=$RPM_BUILD_ROOT/%{_prefix}/%{_lib}/%name
+mkdir -p ${STACKAGE_DIST_ROOT}/
+cp -a %{_sourcedir}/helpers.sh ${STACKAGE_DIST_ROOT}/
+mv ${unpack_root}/.stack/* ${STACKAGE_DIST_ROOT}/
 
 %files
-%{_prefix}/share/%name
+%{_prefix}/%{_lib}/%name/helpers.sh
 
 %files downloads
 %{_prefix}/%{_lib}/%name/download-cache*
