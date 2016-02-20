@@ -25,6 +25,10 @@ Asset package for Stackage (Hackage indices only)
 %package stack
 Summary:        Asset package for Stackage (Stack binary)
 Requires: %name
+
+# Stuff GHC may depend on:
+Requires: ncurses-devel 
+
 %description stack
 Asset package for Stackage (Stack binary)
 
