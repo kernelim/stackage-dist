@@ -16,8 +16,9 @@ outdir=""
 nocleanup=0
 pkgtype=
 maintainer=
+distros=
 
-while getopts "o:nt:m:" o; do
+while getopts "o:nt:m:d:" o; do
     case "${o}" in
         o)
             outdir=${OPTARG}
@@ -30,6 +31,9 @@ while getopts "o:nt:m:" o; do
             ;;
 	n)
 	    nocleanup=1
+	    ;;
+	d)
+	    distros=${OPTARG}
 	    ;;
         *)
             syntax
@@ -52,6 +56,12 @@ case $pkgtype in
 	if [[ "$maintainer" == "" ]] ; then
 	    echo "Maintainer needs to be given for type 'deb'"
 	    exit -1
+	fi
+	if [[ "$distros" == "" ]] ; then
+	    echo error: no output directory specified
+	    echo
+	    syntax
+	    exit 1
 	fi
     ;;
     *)
@@ -182,19 +192,22 @@ make_sdeb() {
 	--exclude indices/Hackage/git-update \
 	-czf ${dest}/stack-root-indices.tar.gz indices
     cd ${tempdir}
+
     tar -czf ${PKG_NAME}_${PKG_VERSION}.orig.tar.gz ${ARCHIVE_NAME}
 
     i=${tempdir}/spec
-    cp ${t}/stackage-dist.deb.spec ${i}
-    sed -i 's/@@PKG_NAME@@/'"${PKG_NAME}"'/g' ${i}
-    sed -i 's/@@PKG_CHANGELOG_TIMESTAMP@@/'"${PKG_CHANGELOG_TIMESTAMP}"'/g' ${i}
-    sed -i 's/@@PKG_FULLVER@@/'"${PKG_FULLVER}"'/g' ${i}
-    sed -i 's#@@PKG_SITE@@#'"${PKG_SITE}"'#g' ${i}
-    sed -i 's/@@PKG_ONELINE@@/'"${PKG_ONELINE}"'/g' ${i}
-    sed -i 's/@@PKG_MAINTAINER@@/'"${maintainer}"'/g' ${i}
+    for distro in ${distros}; do
+        cp ${t}/stackage-dist.deb.spec ${i}
+        sed -i 's/@@PKG_NAME@@/'"${PKG_NAME}"'/g' ${i}
+        sed -i 's/@@PKG_CHANGELOG_TIMESTAMP@@/'"${PKG_CHANGELOG_TIMESTAMP}"'/g' ${i}
+        sed -i 's/@@PKG_FULLVER@@/'"${PKG_FULLVER}"'/g' ${i}
+        sed -i 's#@@PKG_SITE@@#'"${PKG_SITE}"'#g' ${i}
+        sed -i 's/@@PKG_ONELINE@@/'"${PKG_ONELINE}"'/g' ${i}
+        sed -i 's/@@PKG_MAINTAINER@@/'"${maintainer}"'/g' ${i}
+        sed -i 's/@@DISTRO@@/'"${distro}"'/g' ${i}
 
-    cd ${dest}
-    python - <<EOF
+        cd ${dest}
+        python - <<EOF
 import os
 
 f = open("${i}", "r")
@@ -206,7 +219,8 @@ for part in f.read().split('%%%%%%%%%%%%%%%%%%%% CUT %%%%%%%%%%%%%%%%%%%%\n'):
        if d and not os.path.exists(d): os.makedirs(d)
        open(filename, "w").write(part[p+1:])
 EOF
-    dpkg-buildpackage -S
+        dpkg-buildpackage -S
+    done
 
     cd ${tempdir}
     rm ${i}
