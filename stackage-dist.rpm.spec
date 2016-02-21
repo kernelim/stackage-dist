@@ -26,8 +26,10 @@ Asset package for Stackage (Hackage indices only)
 Summary:        Asset package for Stackage (Stack binary)
 Requires: %name
 
-# Stuff GHC may depend on:
-Requires: ncurses-devel 
+%if 0%{?fedora} >= 24
+# GHC builds need tinfo.so.5
+Requires: ncurses-compat-libs
+%endif
 
 %description stack
 Asset package for Stackage (Stack binary)
