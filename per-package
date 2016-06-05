@@ -1,0 +1,252 @@
+#!/usr/bin/env python
+
+from optparse import OptionParser
+
+import sys
+import re
+import os
+import tempfile
+import shutil
+import time
+
+lib_map = {
+    "GL"            : "mesa-libGL-devel",
+    "R"             : "R-devel",
+    "SDL2"          : "SDL2-devel",
+    "X11"           : "libX11-devel",
+    "Xcursor"       : "libXcursor-devel",
+    "Xi"            : "libXi-devel",
+    "Xinerama"      : "libXinerama-devel",
+    "Xrandr"        : "libXrandr-devel",
+    "bz2"           : "bzip2-devel",
+    "cairo"         : "cairo-devel",
+    "crypto"        : "openssl-devel",
+    "curl"          : "libcurl-devel",
+    "fftw"          : "fftw-devel",
+    "fftw2"         : "fftw2-devel",
+    "freenect"      : "libfreenect-devel",
+    "freenect_sync" : "libfreenect-devel",
+    "gd"            : "gd-devel",
+    "glib2"         : "glib2-devel",
+    "gnutls"        : "gnutls-devel",
+    "gsasl"         : "libgsasl-devel",
+    "gsl"           : "gsl-devel",
+    "gtk2"          : "gtk2-devel",
+    "gtk3"          : "gtk3-devel",
+    "icudata"       : "libicu-devel",
+    "icui18n"       : "libicu-devel",
+    "icuuc"         : "libicu-devel",
+    "idn"           : "libidn-devel",
+    "leveldb"       : "leveldb-devel",
+    "m"             : "glibc-devel",
+    "ncurses"       : "ncurses-devel",
+    "nettle"        : "nettle-devel",
+    "pango"         : "pango-devel",
+    "pcap"          : "libpcap-devel",
+    "pcre"          : "pcre-devel",
+    "pq"            : "postgresql-devel",
+    "pthread"       : "glibc-devel",
+    "sndfile"       : "libsndfile-devel",
+    "sqlite3"       : "libsqlite3x-devel",
+    "ssl"           : "openssl-devel",
+    "stdc++"        : "libstdc++-devel",
+    "udev"          : "systemd-devel",
+    "xml2"          : "libxml2-devel",
+    "z"             : "zlib-devel",
+    "zeromq"        : "zeromq-devel",
+}
+
+missing_deps = {
+    "terminfo"      : ["ncurses"],
+    "zlib-binding"  : ["z"],
+}
+
+def main():
+    parser = OptionParser(usage="usage: %prog [options] [files]")
+    parser.add_option(
+        "--base",
+        dest="base",
+        help="Base packages")
+
+    parser.add_option(
+        "--deps",
+        dest="deps",
+        help="Dependencies")
+
+    parser.add_option(
+        "--extra-deps",
+        dest="extra_deps",
+        help="Extra dependencies")
+
+    parser.add_option(
+        "--tools-deps",
+        dest="tools_deps",
+        help="Tools dependencies")
+
+    parser.add_option(
+        "--version",
+        dest="version",
+        help="Version")
+
+    parser.add_option(
+        "-r", "--resolver",
+        dest="resolver",
+        help="Resolver")
+
+    parser.add_option(
+        "--has-lib",
+        dest="has_lib",
+        help="Has library")
+
+    parser.add_option(
+        "-o", "--output-dir",
+        dest="output_dir",
+        help="Output directtory")
+
+    parser.add_option(
+        "-c", "--copr",
+        dest="copr", default=None,
+        help="Copr project name")
+
+    per_package_args = os.getenv("PER_PACKAGE_ARGS")
+
+    (options, args) = parser.parse_args(args = sys.argv[1:] +
+                                        per_package_args.split(' '))
+    def split_by_space(s):
+        r = [a.strip() for a in s.split(' ')]
+        return [x for x in r if x]
+
+    base = split_by_space(options.base)
+    deps = split_by_space(options.deps)
+    extra_deps = split_by_space(options.extra_deps)
+    tools_deps = split_by_space(options.tools_deps)
+    copr = options.copr
+
+    name = args[0]
+    version = options.version
+
+    os.chdir(os.path.dirname(sys.argv[0]))
+
+    built_file = "per-package.data/built.%s" % (name, )
+    built_id_file = "per-package.data/id.built.%s" % (name, )
+    if os.path.exists(built_file):
+        return
+
+    tempdir = tempfile.mkdtemp("per-package")
+    specs_dir = os.path.join(tempdir, "SPECS")
+    os.mkdir(specs_dir)
+    sources_dir = os.path.join(tempdir, "SOURCES")
+    os.mkdir(sources_dir)
+
+    def get_name(name):
+        return "stackage-dist-pkg-" + options.resolver + "-" + name
+
+    pkgname = get_name(name)
+    spec_filename = pkgname + ".spec"
+    spec = open("stackage-dist-pkg.rpm.spec").read()
+    spec = spec.replace("@@PKG_NAME@@", pkgname)
+    spec = spec.replace("@@PKG_VERSION@@", version)
+    spec = spec.replace("@@PKG_RELEASE@@", "1")
+    spec = spec.replace("@@RESOLVER@@", options.resolver)
+    spec = spec.replace("@@NAME@@", name)
+    build_requires = []
+    devel_requires = []
+    for dep in deps:
+        if dep not in base:
+            build_requires.append("BuildRequires: " + get_name(dep) + "-devel\n")
+            devel_requires.append("Requires: " + get_name(dep) + "-devel\n")
+    for dep in tools_deps:
+        build_requires.append("BuildRequires: " + get_name(dep) + "\n")
+    if name in missing_deps:
+        extra_deps.extend(missing_deps[name])
+    for extra_dep in extra_deps:
+        if extra_dep not in lib_map:
+            raise Exception(extra_dep)
+        br = "BuildRequires: " + lib_map[extra_dep] + "\n"
+        if br not in build_requires:
+            build_requires.append(br)
+        r = "Requires: " + lib_map[extra_dep] + "\n"
+        if r not in devel_requires:
+            devel_requires.append(r)
+    spec = spec.replace("@@BUILD_REQUIRES@@", ''.join(build_requires))
+    spec = spec.replace("@@DEVEL_REQUIRES@@", ''.join(devel_requires))
+    spec = spec.replace("@@HAS_LIB@@", str(int(options.has_lib == "True")))
+    spec_absname = os.path.join(specs_dir, spec_filename)
+
+    f = open(spec_absname, "w")
+    f.write(spec)
+    f.close()
+
+    f = open(os.path.join(sources_dir, "nothing.txt"), "w")
+    f.close()
+
+    try:
+        cmd = "rpmbuild -bs --define \"_topdir %(tempdir)s\" %(spec_absname)s" % locals()
+        ret = os.system(cmd)
+        if ret != 0:
+            raise Exception(cmd)
+
+        if copr:
+            srpms_dir = os.path.join(tempdir, "SRPMS")
+            for filename in os.listdir(srpms_dir):
+                pathname = os.path.join(srpms_dir, filename)
+                build_id = None
+
+                if not os.path.exists(built_id_file):
+                    cmd = "flock -x .copr-build-lock copr-cli build --nowait %(copr)s %(pathname)s" % locals()
+                    print cmd
+                    f = os.popen(cmd, "r")
+                    content = f.read()
+                    ret = f.close()
+                    if ret:
+                        raise Exception(cmd, ret)
+                    else:
+                        f = open(built_id_file, "w")
+                        f.write(content)
+                        f.close()
+                else:
+                    content = open(built_id_file).read()
+                    print "%s: build ID exists" % (name, )
+
+                for line in content.splitlines():
+                    m = re.match("Created builds: ([0-9]+)", line)
+                    if m:
+                        build_id = m.groups(0)[0]
+                        break
+
+                if not build_id:
+                    raise Exception("no build id - %r" % (repr(content)))
+
+                status = None
+                while True:
+                    print "%s: waiting for build %s" % (name, build_id)
+                    time.sleep(10)
+                    cmd = "copr-cli status %s" % (build_id, )
+                    p = os.popen(cmd)
+                    status = p.read().strip()
+                    ret = p.close()
+                    if status == "failed" or status == "succeeded":
+                        break
+                    if ret == 1:
+                        status == "error"
+
+                if status == "succeeded":
+                    f = open(built_file, "w")
+                    f.write(content)
+                    f.close()
+                else:
+                    raise Exception(status)
+
+                os.unlink(built_id_file)
+                break
+
+        if options.output_dir:
+            srpms_dir = os.path.join(tempdir, "SRPMS")
+            for filename in os.listdir(srpms_dir):
+                shutil.copy(os.path.join(srpms_dir, filename),
+                            os.path.join(options.output_dir, filename))
+    finally:
+        shutil.rmtree(tempdir)
+
+if __name__ == "__main__":
+    main()

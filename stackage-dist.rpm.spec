@@ -6,76 +6,88 @@ Group:          System Environment/Development Tools
 License:        BSD
 URL:            https://www.stackage.org
 Source0:        stack-bin.gz
-Source1:        stack-root-download-cache.tar.gz
-Source2:        stack-root-indices.tar.gz
-Source3:        helpers.sh
+Source1:        stack-root.tar.gz
+Source2:        stack-root-path.txt
 BuildRoot:      %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 
 %description
 
 %global debug_package %{nil}
 
-%package indices
-Summary:        Asset package for Stackage (Hackage indices only)
+%package snapshot-@@RESOLVER@@
+Summary:        Asset package
 Requires: %name
-BuildArch: noarch
-%description indices
-Asset package for Stackage (Hackage indices only)
+Requires: git
 
-%package stack
-Summary:        Asset package for Stackage (Stack binary)
-Requires: %name
+%description snapshot-@@RESOLVER@@
+Asset package for Stackage
+
+%package ghc-7.10.3
+Summary:        Asset package
+Requires:       gmp-devel
+Requires:       %name
 
 %if 0%{?fedora} >= 24
 # GHC builds need tinfo.so.5
-Requires: ncurses-compat-libs
+Requires:       ncurses-compat-libs
+BuildRequires:  glibc-langpack-en
 %endif
 
-%description stack
-Asset package for Stackage (Stack binary)
+%description ghc-7.10.3
+Asset package for Stackage
 
-%package downloads
-Summary:        Asset package for Stackage (All downloads)
+%package indices
+Summary:        Asset package
 Requires: %name
-%description downloads
-Asset package for Stackage (All downloads)
+
+%description indices
+Asset package for Stackage
+
+%package source-cache-@@RESOLVER@@
+Summary:        Asset package
+Requires: %name
+
+%description source-cache-@@RESOLVER@@
+Asset package for Stackage
 
 %prep
 
-unpack_root=$(pwd)
-mkdir -p ${unpack_root}/.stack
-cd ${unpack_root}/.stack
+tar -zxf %{_sourcedir}/stack-root.tar.gz
 
 mkdir bin
 zcat %{_sourcedir}/stack-bin.gz > bin/stack
 chmod a+x bin/stack
 
-tar -zxf %{_sourcedir}/stack-root-download-cache.tar.gz
-tar -zxf %{_sourcedir}/stack-root-indices.tar.gz
-
 %build
-
-unpack_root=$(pwd)
-export STACK_ROOT=
 
 %install
 
-unpack_root=$(pwd)
-STACKAGE_DIST_ROOT=$RPM_BUILD_ROOT/%{_prefix}/%{_lib}/%name
+STACKAGE_DIST_ROOT=$RPM_BUILD_ROOT/%{_libexecdir}/%{name}
 mkdir -p ${STACKAGE_DIST_ROOT}/
-cp -a %{_sourcedir}/helpers.sh ${STACKAGE_DIST_ROOT}/
-mv ${unpack_root}/.stack/* ${STACKAGE_DIST_ROOT}/
+mv stack-root/* ${STACKAGE_DIST_ROOT}/
+bin/stack relocate ${STACKAGE_DIST_ROOT} %{_libexecdir}/%{name} \
+	  --source=$(cat %{_sourcedir}/stack-root-path.txt)
+mv bin ${STACKAGE_DIST_ROOT}/
 
 %files
-%{_prefix}/%{_lib}/%name/helpers.sh
+%{_libexecdir}/%{name}/bin/stack
+%{_libexecdir}/%{name}/config.yaml
+%{_libexecdir}/%{name}/global-project
 
-%files downloads
-%{_prefix}/%{_lib}/%name/download-cache*
+%files snapshot-@@RESOLVER@@
+%{_libexecdir}/%{name}/build-plan
+%{_libexecdir}/%{name}/build-plan-cache
+%{_libexecdir}/%{name}/snapshots
 
-%files stack
-%{_prefix}/%{_lib}/%name/bin/stack
+%files ghc-7.10.3
+%{_libexecdir}/%{name}/programs/x86_64-linux/ghc-7.10.3.installed
+%{_libexecdir}/%{name}/programs/x86_64-linux/ghc-7.10.3
 
 %files indices
-%{_prefix}/%{_lib}/%name/indices*
+%{_libexecdir}/%{name}/indices/Hackage/00-index.*
+%{_libexecdir}/%{name}/indices/Hackage/git-update
+
+%files source-cache-@@RESOLVER@@
+%{_libexecdir}/%{name}/indices/Hackage/packages
 
 %changelog

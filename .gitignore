@@ -1,2 +1,3 @@
-stackroot/
-All/
+stack-root/
+per-package.data/
+.copr-build-lock
